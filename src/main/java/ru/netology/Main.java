@@ -9,6 +9,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,33 +22,35 @@ public class Main {
     public static ObjectMapper mapper = new ObjectMapper();
 
     public static void main(String[] args) throws IOException {
-
-        CloseableHttpClient httpClient = HttpClientBuilder.create()
-                .setDefaultRequestConfig(RequestConfig.custom()
-                        .setConnectTimeout(5000)    // максимальное время ожидание подключения к серверу
-                        .setSocketTimeout(30000)    // максимальное время ожидания получения данных
-                        .setRedirectsEnabled(false) // возможность следовать редиректу в ответе
-                        .build())
-                .build();
-
-        HttpGet request = new HttpGet(URL);
-        request.setHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
-
-        CloseableHttpResponse response = httpClient.execute(request);
         try {
-        Arrays.stream(response.getAllHeaders()).forEach(System.out::println);
+            CloseableHttpClient httpClient = HttpClientBuilder.create()
+                    .setDefaultRequestConfig(RequestConfig.custom()
+                            .setConnectTimeout(5000)    // максимальное время ожидание подключения к серверу
+                            .setSocketTimeout(30000)    // максимальное время ожидания получения данных
+                            .setRedirectsEnabled(false) // возможность следовать редиректу в ответе
+                            .build())
+                    .build();
 
-        String body = new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
-        System.out.println(body);
+            HttpGet request = new HttpGet(URL);
+            request.setHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
+            CloseableHttpResponse response = httpClient.execute(request);
 
+            try {
+                //Arrays.stream(response.getAllHeaders()).forEach(System.out::println);
+                String jsonResponse = EntityUtils.toString(response.getEntity());
+                //String body = new String(jsonResponse.getBytes(StandardCharsets.UTF_8));
+                //System.out.println(body);
+                List<Post> posts = mapper.readValue(jsonResponse, new TypeReference<List<Post>>() {
+                });
+                posts.stream().filter(value -> value.getUpvotes() != null && value.getUpvotes() > 0).forEach(System.out::println);
 
-            List<Post> posts = mapper.readValue(response.getEntity().getContent(), new TypeReference<List<Post>>() {
-            });
-            posts.stream()
-                    .filter(value -> value.getUpvotes() != null && value.getUpvotes() > 0)
-                    .forEach(System.out::println);
-        } finally {
-            response.close;
+            } finally {
+                response.close();
+                httpClient.close();
+            }
+        } catch (IOException e) {
+            System.err.println(e.getMessage());
+            e.printStackTrace();
         }
     }
 }
